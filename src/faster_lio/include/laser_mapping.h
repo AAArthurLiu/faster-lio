@@ -72,6 +72,7 @@ class LaserMapping : public rclcpp::Node {
     void ObsModel(state_ikfom &s, esekfom::dyn_share_datastruct<double> &ekfom_data);
 
     ////////////////////////////// debug save / show ////////////////////////////////////////////////////////////////
+    void PublishState(const state_ikfom& state) const;
     void PublishPath(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path);
     void PublishOdometry(rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_path);
     void PublishFrameWorld();
@@ -137,6 +138,9 @@ class LaserMapping : public rclcpp::Node {
     rclcpp::Publisher<sensor_msgs::msg::PointCloud2>::SharedPtr pub_laser_cloud_effect_world_;
     rclcpp::Publisher<nav_msgs::msg::Odometry>::SharedPtr pub_odom_aft_mapped_;
     rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path_;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr pub_state_velocity_;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr pub_state_acc_bias_;
+    rclcpp::Publisher<geometry_msgs::msg::Vector3>::SharedPtr pub_state_gyr_bias_;
     std::shared_ptr<tf2_ros::TransformBroadcaster> tf_broadcaster_;
     std::string tf_imu_frame_;
     std::string tf_world_frame_;

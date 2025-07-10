@@ -311,6 +311,9 @@ void LaserMapping::SubAndPubToROS2() {
     pub_laser_cloud_effect_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered_effect_world", 10);
     pub_odom_aft_mapped_ = this->create_publisher<nav_msgs::msg::Odometry>("/Odometry", 10);
     pub_path_ = this->create_publisher<nav_msgs::msg::Path>("/path", 10);
+    pub_state_velocity_ = this->create_publisher<geometry_msgs::msg::Vector3>("/state_velocity", 10);
+    pub_state_acc_bias_ = this->create_publisher<geometry_msgs::msg::Vector3>("/state_acc_bias", 10);
+    pub_state_gyr_bias_ = this->create_publisher<geometry_msgs::msg::Vector3>("/state_gyr_bias", 10);
 }
 
 void LaserMapping::Run() {
@@ -387,6 +390,7 @@ void LaserMapping::Run() {
             PublishPath(pub_path_);
         }
     } else {
+        PublishState(state_point_);
         if (pub_odom_aft_mapped_) {
             PublishOdometry(pub_odom_aft_mapped_);
         }
@@ -409,13 +413,13 @@ void LaserMapping::Run() {
 }
 
 void LaserMapping::StandardPCLCallBack( sensor_msgs::msg::PointCloud2::SharedPtr msg) {
-    mtx_buffer_.lock();
+    std::lock_guard<std::mutex> lock(mtx_buffer_);
     Timer::Evaluate(
         [&, this]() {
             scan_count_++;
             if (common::GetSecondsFromHeader(msg->header) < last_timestamp_lidar_) {
-                LOG(ERROR) << "lidar loop back, clear buffer";
-                lidar_buffer_.clear();
+                LOG(ERROR) << "lidar loop back, skip current lidar";
+                return;
             }
 
             PointCloudType::Ptr ptr(new PointCloudType());
@@ -425,17 +429,16 @@ void LaserMapping::StandardPCLCallBack( sensor_msgs::msg::PointCloud2::SharedPtr
             last_timestamp_lidar_ = common::GetSecondsFromHeader(msg->header);
         },
         "Preprocess (Standard)");
-    mtx_buffer_.unlock();
 }
 
 void LaserMapping::LivoxPCLCallBack( faster_lio_interfaces::msg::CustomMsg::SharedPtr msg) {
-    mtx_buffer_.lock();
+    std::lock_guard<std::mutex> lock(mtx_buffer_);
     Timer::Evaluate(
         [&, this]() {
             scan_count_++;
             if (common::GetSecondsFromHeader(msg->header) < last_timestamp_lidar_) {
-                LOG(WARNING) << "lidar loop back, clear buffer";
-                lidar_buffer_.clear();
+                LOG(ERROR) << "lidar loop back, skip current lidar";
+                return;
             }
 
             last_timestamp_lidar_ = common::GetSecondsFromHeader(msg->header);
@@ -460,11 +463,9 @@ void LaserMapping::LivoxPCLCallBack( faster_lio_interfaces::msg::CustomMsg::Shar
         },
         "Preprocess (Livox)");
 
-    mtx_buffer_.unlock();
 }
 
 void LaserMapping::IMUCallBack( sensor_msgs::msg::Imu::SharedPtr msg_in) {
-    publish_count_++;
     sensor_msgs::msg::Imu::SharedPtr msg = std::make_shared<sensor_msgs::msg::Imu>(*msg_in);
 
     if (abs(timediff_lidar_wrt_imu_) > 0.1 && time_sync_en_) {
@@ -473,15 +474,16 @@ void LaserMapping::IMUCallBack( sensor_msgs::msg::Imu::SharedPtr msg_in) {
 
     double timestamp = common::GetSecondsFromHeader(msg->header);
 
-    mtx_buffer_.lock();
+    std::lock_guard<std::mutex> lock(mtx_buffer_);
     if (timestamp < last_timestamp_imu_) {
-        LOG(WARNING) << "imu loop back, clear buffer";
-        imu_buffer_.clear();
+        LOG(ERROR) << "imu loop back, skip current imu";
+        return;
     }
+
+    publish_count_++;
 
     last_timestamp_imu_ = timestamp;
     imu_buffer_.emplace_back(msg);
-    mtx_buffer_.unlock();
 }
 
 bool LaserMapping::SyncPackages() {
@@ -714,6 +716,25 @@ void LaserMapping::ObsModel(state_ikfom &s, esekfom::dyn_share_datastruct<double
 }
 
 /////////////////////////////////////  debug save / show /////////////////////////////////////////////////////
+void LaserMapping::PublishState(const state_ikfom& state) const {
+    geometry_msgs::msg::Vector3 state_velocity;
+    state_velocity.x = state.vel[0];
+    state_velocity.y = state.vel[1];
+    state_velocity.z = state.vel[2];
+    pub_state_velocity_->publish(state_velocity);
+
+    geometry_msgs::msg::Vector3 state_acc_bias;
+    state_acc_bias.x = state.ba[0];
+    state_acc_bias.y = state.ba[1];
+    state_acc_bias.z = state.ba[2];
+    pub_state_acc_bias_->publish(state_acc_bias);
+
+    geometry_msgs::msg::Vector3 state_gyr_bias;
+    state_gyr_bias.x = state.bg[0];
+    state_gyr_bias.y = state.bg[1];
+    state_gyr_bias.z = state.bg[2];
+    pub_state_gyr_bias_->publish(state_gyr_bias);
+}
 
 void LaserMapping::PublishPath(rclcpp::Publisher<nav_msgs::msg::Path>::SharedPtr pub_path) {
     SetPosestamp(msg_body_pose_);
