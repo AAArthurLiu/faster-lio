@@ -5,18 +5,42 @@
 
 namespace faster_lio {
 
-void PointCloudPreprocess::Set(LidarType lid_type, double bld, int pfilt_num) {
-    lidar_type_ = lid_type;
-    blind_ = bld;
-    point_filter_num_ = pfilt_num;
+std::string ToString(LidarType type) {
+    switch (type) {
+        case LidarType::AVIA:
+            return "AVIA";
+        case LidarType::VELO32:
+            return "VELO32";
+        case LidarType::OUST64:
+            return "OUST64";
+        case LidarType::JT16:
+            return "JT16";
+        case LidarType::MID360:
+            return "MID360";
+        default:
+            LOG(FATAL) << "ToString() for type " << static_cast<int>(type) << " is NOT implemented. ";
+            return "UNKNOWN";
+    }
 }
 
-void PointCloudPreprocess::Process(const faster_lio_interfaces::msg::CustomMsg::ConstSharedPtr &msg, PointCloudType::Ptr &pcl_out) {
+void PointCloudPreprocess::SetLidarType(int lidar_type_int) {
+    LidarType lidar_type = static_cast<LidarType>(lidar_type_int);
+    SetLidarType(lidar_type);
+}
+
+void PointCloudPreprocess::SetLidarType(LidarType lidar_type) {
+    LOG(INFO) << "Using lidar type: " << ToString(lidar_type);
+    lidar_type_ = lidar_type;
+}
+
+void PointCloudPreprocess::Process(const faster_lio_interfaces::msg::CustomMsg::ConstSharedPtr &msg,
+                                   PointCloudType::Ptr &pcl_out) {
     AviaHandler(msg);
     *pcl_out = cloud_out_;
 }
 
-void PointCloudPreprocess::Process(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg, PointCloudType::Ptr &pcl_out) {
+void PointCloudPreprocess::Process(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg,
+                                   PointCloudType::Ptr &pcl_out) {
     switch (lidar_type_) {
         case LidarType::AVIA:
             LOG(FATAL) << "AVIA LiDAR should be handled somewhere else";
@@ -27,7 +51,10 @@ void PointCloudPreprocess::Process(const sensor_msgs::msg::PointCloud2::ConstSha
             VelodyneHandler(msg);
             break;
         case LidarType::JT16:
-            JT16Handler(msg);
+            TimedPointcloudHandler(msg);
+            break;
+        case LidarType::MID360:
+            TimedPointcloudHandler(msg);
             break;
         default:
             LOG(ERROR) << "Error LiDAR Type";
@@ -190,7 +217,7 @@ void PointCloudPreprocess::VelodyneHandler(const sensor_msgs::msg::PointCloud2::
     }
 }
 
-void PointCloudPreprocess::JT16Handler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg) {
+void PointCloudPreprocess::TimedPointcloudHandler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg) {
     cloud_out_.clear();
     cloud_full_.clear();
 
@@ -198,18 +225,26 @@ void PointCloudPreprocess::JT16Handler(const sensor_msgs::msg::PointCloud2::Cons
     const auto &fields = msg->fields;
     int offset_x = -1, offset_y = -1, offset_z = -1, offset_intensity = -1, offset_time = -1;
     for (const auto &field : fields) {
-        if (field.name == "x") offset_x = field.offset;
-        else if (field.name == "y") offset_y = field.offset;
-        else if (field.name == "z") offset_z = field.offset;
-        else if (field.name == "intensity") offset_intensity = field.offset;
-        else if (field.name == "timestamp") {
+        if (field.name == "x") {
+            offset_x = field.offset;
+        } else if (field.name == "y") {
+            offset_y = field.offset;
+        } else if (field.name == "z") {
+            offset_z = field.offset;
+        } else if (field.name == "intensity") {
+            offset_intensity = field.offset;
+        } else if (field.name == "timestamp") {
             offset_time = field.offset;
-            CHECK_EQ(field.datatype, 8);
+            if (field.datatype != 8) {
+                LOG(ERROR) << "Expected timestamp datatype 8 (float64), got " << field.datatype;
+                return;
+            }
         }
     }
 
     if (offset_x < 0 || offset_y < 0 || offset_z < 0 || offset_intensity < 0 || offset_time < 0) {
-        RCLCPP_ERROR(rclcpp::get_logger("PointCloudPreprocess"), "Missing required fields in JT16 point cloud");
+        LOG(ERROR) << "Missing required fields in timed point cloud - x:" << offset_x << " y:" << offset_y
+                   << " z:" << offset_z << " intensity:" << offset_intensity << " time:" << offset_time;
         return;
     }
 
@@ -218,9 +253,18 @@ void PointCloudPreprocess::JT16Handler(const sensor_msgs::msg::PointCloud2::Cons
     cloud_out_.reserve(num_points / point_filter_num_ + 1);
 
     const uint8_t *data_ptr = msg->data.data();
-    const double head_time = *reinterpret_cast<const double *>(data_ptr + offset_time);  // in seconds
+    const double time_ratio_to_second = lidar_type_ == LidarType::MID360 ? 1.0e-9 : 1.0;  // MID360 uses nanoseconds
+    double head_time = *reinterpret_cast<const double *>(data_ptr + offset_time) * time_ratio_to_second;
+
+    int points_added = 0;
+    int points_filtered_by_step = 0;
+    int points_filtered_by_blind = 0;
+
     for (size_t i = 0; i < num_points; ++i) {
-        if (i % point_filter_num_ != 0) continue;
+        if (i % point_filter_num_ != 0) {
+            points_filtered_by_step++;
+            continue;
+        }
 
         const uint8_t *pt_base = data_ptr + i * point_step;
 
@@ -228,10 +272,13 @@ void PointCloudPreprocess::JT16Handler(const sensor_msgs::msg::PointCloud2::Cons
         float y = *reinterpret_cast<const float *>(pt_base + offset_y);
         float z = *reinterpret_cast<const float *>(pt_base + offset_z);
         double range = x * x + y * y + z * z;
-        if (range < blind_ * blind_) continue;
+        if (range < blind_ * blind_) {
+            points_filtered_by_blind++;
+            continue;
+        }
 
         float intensity = *reinterpret_cast<const float *>(pt_base + offset_intensity);
-        double time = *reinterpret_cast<const double *>(pt_base + offset_time);  // in seconds
+        double time = *reinterpret_cast<const double *>(pt_base + offset_time) * time_ratio_to_second;
 
         PointType added_pt;
         added_pt.x = x;
@@ -244,7 +291,12 @@ void PointCloudPreprocess::JT16Handler(const sensor_msgs::msg::PointCloud2::Cons
         added_pt.curvature = static_cast<float>((time - head_time) * 1000.0);  // convert to milliseconds
 
         cloud_out_.push_back(added_pt);
+        points_added++;
     }
+
+    LOG_EVERY_N(INFO, 100) << "TimedPointcloudHandler results: " << points_added << " points added, "
+                           << points_filtered_by_step << " filtered by step, " << points_filtered_by_blind
+                           << " filtered by blind distance";
 }
 
 }  // namespace faster_lio

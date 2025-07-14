@@ -9,6 +9,10 @@
 
 namespace faster_lio {
 
+namespace {
+constexpr double kGravity = 9.80655;  // m/s^2
+}  // namespace
+
 LaserMapping::LaserMapping() : rclcpp::Node("laser_mapping") {
     preprocess_ = std::make_shared<PointCloudPreprocess>();
     p_imu_ = std::make_shared<ImuProcess>();
@@ -76,7 +80,8 @@ bool LaserMapping::LoadParams() {
     this->declare_parameter("publish.tf_world_frame", std::string("camera_init"));
     this->declare_parameter("max_iteration", 4);
     this->declare_parameter("esti_plane_threshold", 0.1f);
-    this->declare_parameter("map_file_path", std::string(""));
+    this->declare_parameter("common.lidar_topic", "");
+    this->declare_parameter("common.imu_topic", "");
     this->declare_parameter("common.time_sync_en", false);
     this->declare_parameter("filter_size_surf", 0.5);
     this->declare_parameter("filter_size_map", 0.0);
@@ -112,7 +117,8 @@ bool LaserMapping::LoadParams() {
     this->get_parameter("publish.tf_world_frame", tf_world_frame_);
     this->get_parameter("max_iteration", options::NUM_MAX_ITERATIONS);
     this->get_parameter("esti_plane_threshold", options::ESTI_PLANE_THRESHOLD);
-    this->get_parameter("map_file_path", map_file_path_);
+    this->get_parameter("common.lidar_topic", lidar_topic_);
+    this->get_parameter("common.imu_topic", imu_topic_);
     this->get_parameter("common.time_sync_en", time_sync_en_);
     double filter_size_surf_min;
     this->get_parameter("filter_size_surf", filter_size_surf_min);
@@ -124,8 +130,8 @@ bool LaserMapping::LoadParams() {
     this->get_parameter("mapping.acc_cov", acc_cov);
     this->get_parameter("mapping.b_gyr_cov", b_gyr_cov);
     this->get_parameter("mapping.b_acc_cov", b_acc_cov);
-    double blind, time_scale;
-    this->get_parameter("preprocess.blind", blind);
+    this->get_parameter("preprocess.blind", preprocess_->Blind());
+    double time_scale = 1;
     this->get_parameter("preprocess.time_scale", time_scale);
     int lidar_type, scan_line, point_filter_num;
     this->get_parameter("preprocess.lidar_type", lidar_type);
@@ -143,23 +149,7 @@ bool LaserMapping::LoadParams() {
     int ivox_nearby_type;
     this->get_parameter("ivox_nearby_type", ivox_nearby_type);
 
-    LOG(INFO) << "lidar_type " << lidar_type;
-    if (lidar_type == 1) {
-        preprocess_->SetLidarType(LidarType::AVIA);
-        LOG(INFO) << "Using AVIA Lidar";
-    } else if (lidar_type == 2) {
-        preprocess_->SetLidarType(LidarType::VELO32);
-        LOG(INFO) << "Using Velodyne 32 Lidar";
-    } else if (lidar_type == 3) {
-        preprocess_->SetLidarType(LidarType::OUST64);
-        LOG(INFO) << "Using OUST 64 Lidar";
-    } else if (lidar_type == 4) {
-        preprocess_->SetLidarType(LidarType::JT16);
-        LOG(INFO) << "Using Hesai JT16 Lidar";
-    } else {
-        LOG(WARNING) << "unknown lidar_type";
-        return false;
-    }
+    preprocess_->SetLidarType(lidar_type);
 
     if (ivox_nearby_type == 0) {
         ivox_options_.nearby_type_ = IVoxType::NearbyType::CENTER;
@@ -194,6 +184,7 @@ bool LaserMapping::LoadParams() {
 }
 
 bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
+    LOG(FATAL) << "To implement lidar_type new enums and lidar, imu topic assignment";
     // get params from yaml
     int lidar_type, ivox_nearby_type;
     double gyr_cov, acc_cov, b_gyr_cov, b_acc_cov;
@@ -243,20 +234,7 @@ bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
         return false;
     }
 
-    LOG(INFO) << "lidar_type " << lidar_type;
-    if (lidar_type == 1) {
-        preprocess_->SetLidarType(LidarType::AVIA);
-        LOG(INFO) << "Using AVIA Lidar";
-    } else if (lidar_type == 2) {
-        preprocess_->SetLidarType(LidarType::VELO32);
-        LOG(INFO) << "Using Velodyne 32 Lidar";
-    } else if (lidar_type == 3) {
-        preprocess_->SetLidarType(LidarType::OUST64);
-        LOG(INFO) << "Using OUST 64 Lidar";
-    } else {
-        LOG(WARNING) << "unknown lidar_type";
-        return false;
-    }
+    preprocess_->SetLidarType(lidar_type);
 
     if (ivox_nearby_type == 0) {
         ivox_options_.nearby_type_ = IVoxType::NearbyType::CENTER;
@@ -288,22 +266,32 @@ bool LaserMapping::LoadParamsFromYAML(const std::string &yaml_file) {
 
 void LaserMapping::SubAndPubToROS2() {
     // ROS2 subscribe initialization
-    std::string lidar_topic = this->declare_parameter("common.lid_topic", std::string("/livox/lidar"));
-    std::string imu_topic = this->declare_parameter("common.imu_topic", std::string("/livox/imu"));
+    CHECK(!lidar_topic_.empty());
+    CHECK(!imu_topic_.empty());
+    LOG(INFO) << "Subscribing to lidar topic: " << lidar_topic_;
+    LOG(INFO) << "Subscribing to imu topic: " << imu_topic_;
 
     if (preprocess_->GetLidarType() == LidarType::AVIA) {
         sub_livox_ = this->create_subscription<faster_lio_interfaces::msg::CustomMsg>(
-            lidar_topic, rclcpp::SensorDataQoS(),
+            lidar_topic_, rclcpp::SensorDataQoS(),
             std::bind(&LaserMapping::LivoxPCLCallBack, this, std::placeholders::_1));
     } else {
         sub_pcl_ = this->create_subscription<sensor_msgs::msg::PointCloud2>(
-            lidar_topic, rclcpp::SensorDataQoS(),
+            lidar_topic_, rclcpp::SensorDataQoS(),
             std::bind(&LaserMapping::StandardPCLCallBack, this, std::placeholders::_1));
     }
 
-    sub_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(
-        imu_topic, rclcpp::SensorDataQoS(),
-        std::bind(&LaserMapping::IMUCallBack, this, std::placeholders::_1));
+    if (preprocess_->GetLidarType() == LidarType::MID360) {
+        LOG(INFO) << "Using MID360 Lidar's IMU";
+        sub_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(
+            imu_topic_, rclcpp::SensorDataQoS(),
+            std::bind(&LaserMapping::Mid360IMUCallBack, this, std::placeholders::_1));
+    } else {
+        LOG(INFO) << "Using regular IMU";
+        sub_imu_ = this->create_subscription<sensor_msgs::msg::Imu>(
+            imu_topic_, rclcpp::SensorDataQoS(),
+            std::bind(&LaserMapping::IMUCallBack, this, std::placeholders::_1));
+    }
 
     // ROS2 publisher init
     pub_laser_cloud_world_ = this->create_publisher<sensor_msgs::msg::PointCloud2>("/cloud_registered", 10);
@@ -378,8 +366,8 @@ void LaserMapping::Run() {
     // update local map
     Timer::Evaluate([&, this]() { MapIncremental(); }, "    Incremental Mapping");
 
-    LOG(INFO) << "[ mapping ]: In num: " << scan_undistort_->points.size() << " downsamp " << cur_pts
-              << " Map grid num: " << ivox_->NumValidGrids() << " effect num : " << effect_feat_num_;
+    LOG_EVERY_N(INFO, 100) << "[ mapping ]: In num: " << scan_undistort_->points.size() << " downsamp " << cur_pts
+                           << " Map grid num: " << ivox_->NumValidGrids() << " effect num : " << effect_feat_num_;
 
     // publish or save map pcd
     if (run_in_offline_) {
@@ -484,6 +472,15 @@ void LaserMapping::IMUCallBack( sensor_msgs::msg::Imu::SharedPtr msg_in) {
 
     last_timestamp_imu_ = timestamp;
     imu_buffer_.emplace_back(msg);
+}
+
+void LaserMapping::Mid360IMUCallBack(sensor_msgs::msg::Imu::SharedPtr msg_in) {
+    sensor_msgs::msg::Imu::SharedPtr msg = std::make_shared<sensor_msgs::msg::Imu>(*msg_in);
+    // Multiple the acc part of IMU by gravity to convert to m/s^2
+    msg->linear_acceleration.x *= kGravity;
+    msg->linear_acceleration.y *= kGravity;
+    msg->linear_acceleration.z *= kGravity;
+    IMUCallBack(msg);
 }
 
 bool LaserMapping::SyncPackages() {

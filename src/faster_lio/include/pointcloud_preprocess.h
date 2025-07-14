@@ -55,7 +55,9 @@ POINT_CLOUD_REGISTER_POINT_STRUCT(ouster_ros::Point,
 
 namespace faster_lio {
 
-enum class LidarType : int { AVIA = 1, VELO32 = 2, OUST64 = 3, JT16 = 4 };
+enum class LidarType : int { AVIA = 1, VELO32 = 2, OUST64 = 3, JT16 = 4, MID360 = 5 };
+
+std::string ToString(LidarType type);
 
 /**
  * point cloud preprocess
@@ -71,7 +73,6 @@ class PointCloudPreprocess {
     /// processors
     void Process(const faster_lio_interfaces::msg::CustomMsg::ConstSharedPtr &msg, PointCloudType::Ptr &pcl_out);
     void Process(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg, PointCloudType::Ptr &pcl_out);
-    void Set(LidarType lid_type, double bld, int pfilt_num);
 
     // accessors
     double &Blind() { return blind_; }
@@ -80,13 +81,14 @@ class PointCloudPreprocess {
     bool &FeatureEnabled() { return feature_enabled_; }
     float &TimeScale() { return time_scale_; }
     LidarType GetLidarType() const { return lidar_type_; }
-    void SetLidarType(LidarType lt) { lidar_type_ = lt; }
+    void SetLidarType(int lidar_type_int);
+    void SetLidarType(LidarType lidar_type);
 
    private:
     void AviaHandler(const faster_lio_interfaces::msg::CustomMsg::ConstSharedPtr &msg);
     void Oust64Handler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg);
     void VelodyneHandler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg);
-    void JT16Handler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg);
+    void TimedPointcloudHandler(const sensor_msgs::msg::PointCloud2::ConstSharedPtr &msg);
 
     PointCloudType cloud_full_, cloud_out_;
 

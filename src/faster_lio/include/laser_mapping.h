@@ -64,6 +64,7 @@ class LaserMapping : public rclcpp::Node {
     void StandardPCLCallBack(sensor_msgs::msg::PointCloud2::SharedPtr msg);
     void LivoxPCLCallBack(faster_lio_interfaces::msg::CustomMsg::SharedPtr msg);
     void IMUCallBack(sensor_msgs::msg::Imu::SharedPtr msg_in);
+    void Mid360IMUCallBack(sensor_msgs::msg::Imu::SharedPtr msg_in);
 
     // sync lidar with imu
     bool SyncPackages();
@@ -113,9 +114,10 @@ class LaserMapping : public rclcpp::Node {
     bool localmap_initialized_ = false;
 
     /// params
+    std::string lidar_topic_;
+    std::string imu_topic_;
     std::vector<double> extrinT_{3, 0.0};  // lidar-imu translation
     std::vector<double> extrinR_{9, 0.0};  // lidar-imu rotation
-    std::string map_file_path_;
 
     /// point clouds data
     CloudPtr scan_undistort_{new PointCloudType()};   // scan after undistortion
