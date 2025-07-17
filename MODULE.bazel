@@ -1,0 +1,267 @@
+"""External dependencies following the new bzlmod format"""
+
+# Dependencies
+
+bazel_dep(name = "platforms", version = "1.0.0")
+bazel_dep(name = "bazel_skylib", version = "1.8.1")
+bazel_dep(name = "rules_cc", version = "0.1.2")
+bazel_dep(name = "rules_foreign_cc", version = "0.15.0")
+bazel_dep(name = "abseil-cpp", version = "20250512.1", repo_name = "com_google_absl")
+bazel_dep(name = "com_github_mvukov_rules_ros2", version = "0.0.0-20250612-f0d04fe")
+bazel_dep(name = "protobuf", version = "31.1", repo_name = "com_google_protobuf")
+bazel_dep(name = "glog", version = "0.7.1", repo_name = "com_github_google_glog")
+bazel_dep(name = "gflags", version = "2.2.2", repo_name = "com_github_gflags_gflags")
+bazel_dep(name = "googletest", version = "1.17.0", repo_name = "com_google_googletest")
+bazel_dep(name = "nlohmann_json", version = "3.12.0", repo_name = "com_github_nlohmann_json")
+bazel_dep(name = "sqlite3", version = "3.50.2")
+bazel_dep(name = "zlib", version = "1.3.1.bcr.6")
+bazel_dep(name = "range-v3", version = "0.12.0", repo_name = "com_github_range_v3")
+bazel_dep(name = "websocketpp", version = "0.8.2.bcr.3", repo_name = "com_github_zaphoyd_websocketpp")
+bazel_dep(name = "paho.mqtt.cpp", version = "1.5.2", repo_name = "com_github_paho_mqtt_cpp")
+bazel_dep(name = "magic_enum", version = "0.9.7", repo_name = "com_github_magic_enum")
+bazel_dep(name = "yaml-cpp", version = "0.8.0", repo_name = "com_github_yaml_cpp")
+
+## Pin all boost packages to 1.83.0.bcr.1 since newer versions are not compatible.
+bazel_dep(name = "boost.beast", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.geometry", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.filesystem", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.bimap", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.variant", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.interprocess", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.algorithm", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.endian", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.any", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.lexical_cast", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.random", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.property_map", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.graph", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.dynamic_bitset", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.multiprecision", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.heap", version = "1.83.0")
+bazel_dep(name = "boost.assert", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.bind", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.circular_buffer", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.config", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.core", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.function", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.fusion", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.mpl", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.parameter", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.phoenix", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.preprocessor", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.proto", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.serialization", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.tuple", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.type_traits", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.typeof", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.system", version = "1.83.0.bcr.1")
+bazel_dep(name = "boost.thread", version = "1.83.0.bcr.1")
+
+## Non-registry dependencies
+http_archive = use_repo_rule("@bazel_tools//tools/build_defs/repo:http.bzl", "http_archive")
+
+new_git_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:git.bzl", "new_git_repository")
+new_local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "new_local_repository")
+local_repository = use_repo_rule("@bazel_tools//tools/build_defs/repo:local.bzl", "local_repository")
+
+new_local_repository(
+    name = "pcl", 
+    build_file = "//third_party:pcl.BUILD",
+    path = "/usr/include/pcl-1.12",
+)
+
+# Add system TBB as a Bazel repository
+new_local_repository(
+    name = "tbb",
+    path = "/usr/include",
+    build_file = "//third_party:tbb.BUILD",
+)
+
+# System-installed ROS2 libraries
+new_local_repository(
+    name = "ros2_pcl_conversions",
+    build_file = "//third_party:pcl_conversions.BUILD",
+    path = "/opt/ros/humble",
+)
+
+new_local_repository(
+    name = "ros2_tf2",
+    build_file = "//third_party:ros2_tf2.BUILD",
+    path = "/opt/ros/humble",
+)
+
+new_local_repository(
+    name = "ros2_pcl_msgs",
+    build_file = "//third_party:pcl_msgs.BUILD",
+    path = "/opt/ros/humble",
+)
+
+http_archive(
+    name = "cgal",
+    build_file = "//third_party/cgal:cgal.BUILD",
+    sha256 = "1e14ea8beb5d6a657bd42a59ce389f3032f49ce0cf1eae783ef455e47016f887",
+    strip_prefix = "cgal-5.5.1",
+    url = "https://github.com/CGAL/cgal/archive/refs/tags/v5.5.1.tar.gz",
+)
+
+http_archive(
+    name = "com_github_libgeos",
+    build_file = "//third_party/libgeos:libgeos.BUILD",
+    sha256 = "d6ea7e492224b51193e8244fe3ec17c4d44d0777f3c32ca4fb171140549a0d03",
+    strip_prefix = "geos-3.12.1",
+    urls = ["https://download.osgeo.org/geos/geos-3.12.1.tar.bz2"],
+)
+
+http_archive(
+    name = "com_github_matplotlibcpp",
+    build_file = "//third_party/matplotlibcpp:matplotlibcpp.BUILD",
+    sha256 = "d061c56d53cc2355e1543198a3899a361495f5c8a72b938204a5307614ca883f",
+    strip_prefix = "matplotlib-cpp-ef0383f1315d32e0156335e10b82e90b334f6d9f",
+    urls = ["https://github.com/lava/matplotlib-cpp/archive/ef0383f1315d32e0156335e10b82e90b334f6d9f.zip"],
+)
+
+http_archive(
+    name = "com_github_boost_ext_sml",
+    build_file = "//third_party/sml:sml.BUILD",
+    sha256 = "08a6d80eb9aa6ee4e462c1b802b9d7db8a39758746565f13cc4d2459ed49a29e",
+    strip_prefix = "sml-1.1.6",
+    url = "https://github.com/boost-ext/sml/archive/refs/tags/v1.1.6.tar.gz",
+)
+
+http_archive(
+    name = "com_github_behaviortree_cpp",
+    build_file = "//third_party/behaviortree_cpp:behaviortree_cpp.BUILD",
+    sha256 = "ee71a20daa245b4a8eb27c8352b0cb144831c456bdac4ed894694a1f78e407da",
+    strip_prefix = "BehaviorTree.CPP-4.7.0",
+    urls = ["https://github.com/BehaviorTree/BehaviorTree.CPP/archive/refs/tags/4.7.0.tar.gz"],
+)
+
+http_archive(
+    ## boost.msm is not available in the bazel registry, so we use a custom BUILD file with similar BUILD structure
+    name = "boost.msm",
+    build_file = "//third_party/boost.msm:boost.msm.BUILD",
+    sha256 = "5f27b57f663c99c0052383191ee60ad09edb1254eb05c83608149cb3cf25b85a",
+    strip_prefix = "msm-boost-1.83.0",
+    urls = ["https://github.com/boostorg/msm/archive/refs/tags/boost-1.83.0.tar.gz"],
+)
+
+http_archive(
+    name = "com_github_onnxruntime",
+    build_file = "//third_party/onnxruntime:onnxruntime.BUILD",
+    sha256 = "f2f11f9da1e3e19b22a8b378b9af57a58433f40e3db6a803e75c0ec0eba97a20",
+    strip_prefix = "onnxruntime-linux-x64-1.17.3",
+    urls = ["https://github.com/microsoft/onnxruntime/releases/download/v1.17.3/onnxruntime-linux-x64-1.17.3.tgz"],
+)
+
+http_archive(
+    ## Bazel registry only contains v2.2.0 which deprecates the LocalParametrization interface
+    name = "com_github_ceres",
+    sha256 = "2ab0348e0f65fdf43bebcd325a1c73f7e8999691ee75e2a2981281931c42e9fa",
+    strip_prefix = "ceres-solver-2.0.0",
+    url = "https://github.com/ceres-solver/ceres-solver/archive/refs/tags/2.0.0.tar.gz",
+)
+
+http_archive(
+    ## Bazel registry contains the newer 1.5.3. Maintaining old version for compatibility.
+    name = "com_github_clipper2",
+    build_file = "//third_party/clipper2:clipper2.BUILD",
+    sha256 = "b83f71bb6a338f4f82116089c5ae867dbc43a2d651b5441380970dd966edd959",
+    strip_prefix = "Clipper2-Clipper2_1.4.0",
+    url = "https://github.com/AngusJohnson/Clipper2/archive/refs/tags/Clipper2_1.4.0.tar.gz",
+)
+
+http_archive(
+    ## Same version as bazel registry but with custom patch
+    name = "com_github_OctoMap_octomap",
+    build_file = "//third_party/octomap:octomap.BUILD",
+    patch_args = ["-p1"],
+    patches = ["//third_party/octomap:octomap.patch"],
+    sha256 = "417af6da4e855e9a83b93458aa98b01a2c88f880088baad2b59d323ce162586e",
+    strip_prefix = "octomap-1.9.8",
+    urls = ["https://github.com/OctoMap/octomap/archive/refs/tags/v1.9.8.tar.gz"],
+)
+
+http_archive(
+    ## Bazel registry contains a newer version (4.11.0.bcr.2).
+    name = "com_github_opencv_opencv",
+    build_file = "//third_party/opencv:opencv.BUILD",
+    patch_args = ["-p1"],
+    patches = ["//third_party/opencv:opencv.patch"],
+    sha256 = "1ec1cba65f9f20fe5a41fda1586e01c70ea0c9a6d7b67c9e13edf0cfe2239277",
+    strip_prefix = "opencv-4.6.0",
+    urls = ["https://github.com/opencv/opencv/archive/refs/tags/4.6.0.tar.gz"],
+)
+
+http_archive(
+    ## Bazel registry version differs slightly in the build file. Using old version for compatibility.
+    name = "com_gitlab_eigen",
+    build_file = "//third_party:eigen.BUILD",
+    sha256 = "8586084f71f9bde545ee7fa6d00288b264a2b7ac3607b974e54d13e7162c1c72",
+    strip_prefix = "eigen-3.4.0",
+    url = "https://gitlab.com/libeigen/eigen/-/archive/3.4.0/eigen-3.4.0.tar.gz",
+)
+
+http_archive(
+    name = "com_github_nanoflann",
+    build_file = "//third_party/nanoflann:nanoflann.BUILD",
+    sha256 = "e100b5fc8d72e9426a80312d852a62c05ddefd23f17cbb22ccd8b458b11d0bea",
+    strip_prefix = "nanoflann-1.3.2",
+    urls = [
+        "https://github.com/jlblancoc/nanoflann/archive/refs/tags/v1.3.2.tar.gz",
+    ],
+)
+
+new_git_repository(
+    name = "com_github_gobbledegook",
+    build_file = "//third_party/gobbledegook:gobbledegook.BUILD",
+    patch_args = ["-p1"],
+    patches = ["//third_party/gobbledegook:ggk.patch"],
+    remote = "https://github.com/nettlep/gobbledegook.git",
+    commit = "50b2ae2237ea6e8b1466d64e3add33acefe921a0",
+)
+
+http_archive(
+    name = "bazel_vscode_compdb",
+    build_file_content = """
+load("@bazel_skylib//rules:copy_file.bzl", "copy_file")
+load("@bazel_skylib//rules:select_file.bzl", "select_file")
+
+exports_files(["aspects.bzl"])
+
+copy_file(
+    name = "aspects",
+    src = "aspects.bzl",
+    out = "aspects.bzl",
+    visibility = ["//visibility:public"],
+)
+""",
+    sha256 = "c4a9fadf7ff1a85450da7db3768643a914575363f6ae5304f361a1cf42169a7f",
+    strip_prefix = "bazel-compilation-database-bc8a4da42f39b13fc298428837bf2a87e5bcd704",
+    url = "https://github.com/grailbio/bazel-compilation-database/archive/bc8a4da42f39b13fc298428837bf2a87e5bcd704.zip",
+)
+
+# Extensions
+
+rules_ros2_non_module_deps = use_extension("@com_github_mvukov_rules_ros2//ros2:extensions.bzl", "non_module_deps")
+use_repo(
+    rules_ros2_non_module_deps,
+    # Check the rules_ros2 root MODULE.bazel for a full list of available non-module repos
+    "ros2_common_interfaces",
+    "ros2_message_filters",
+    "ros2_geometry2",
+    "ros2_launch",
+    "ros2_launch_ros",
+    "ros2_rcl_interfaces",
+    "ros2_rclcpp",
+    "ros2_rclpy",
+    "ros2_rosidl",
+    "ros2_rosbag2",
+    "ros2cli",
+)
+
+## Note: temporary toolchain with no sysroot. Download from
+## http://archive.d-robotics.cc/toolchain/gcc-arm-11.2-2022.02-x86_64-aarch64-none-linux-gnu.tar.xz
+## and extract to /opt/rdk/
+# register_toolchains(
+#     "//toolchain/rdk:cc_toolchain",
+# )

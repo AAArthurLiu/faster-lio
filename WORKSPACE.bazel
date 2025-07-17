@@ -1,0 +1,2 @@
+# An empty WORKSPACE file is required for Bazel to recognize this directory as a workspace.
+# You can add external dependencies here if needed.

@@ -320,7 +320,7 @@ void LaserMapping::Run() {
     if (flg_first_scan_) {
         state_point_ = kf_.get_x();
         scan_down_world_->resize(scan_undistort_->size());
-        for (int i = 0; i < scan_undistort_->size(); i++) {
+        for (size_t i = 0; i < scan_undistort_->size(); i++) {
             PointBodyToWorld(&scan_undistort_->points[i], &scan_down_world_->points[i]);
         }
         ivox_->AddPoints(scan_down_world_->points);
@@ -538,7 +538,7 @@ void LaserMapping::MapIncremental() {
     PointVector points_to_add;
     PointVector point_no_need_downsample;
 
-    int cur_pts = scan_down_body_->size();
+    size_t cur_pts = scan_down_body_->size();
     points_to_add.reserve(cur_pts);
     point_no_need_downsample.reserve(cur_pts);
 
@@ -812,7 +812,7 @@ void LaserMapping::PublishFrameWorld() {
 
     /**************** save map ****************/
     /* 1. make sure you have enough memories
-    /* 2. noted that pcd save will influence the real-time performences **/
+       2. noted that pcd save will influence the real-time performences */
     if (pcd_save_en_) {
         *pcl_wait_save_ += *laserCloudWorld;
 
@@ -927,7 +927,7 @@ void LaserMapping::PointBodyLidarToIMU(PointType const *const pi, PointType *con
 void LaserMapping::Finish() {
     /**************** save map ****************/
     /* 1. make sure you have enough memories
-    /* 2. pcd save will largely influence the real-time performences **/
+       2. pcd save will largely influence the real-time performences */
     if (pcl_wait_save_->size() > 0 && pcd_save_en_) {
         std::string file_name = std::string("scans.pcd");
         std::string all_points_dir("PCD/" + file_name);

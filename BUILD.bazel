@@ -1,0 +1,63 @@
+load("@rules_cc//cc:defs.bzl", "cc_binary", "cc_library")
+
+cc_library(
+    name = "faster_lio",
+    srcs = [
+        "src/faster_lio/src/imu_processing.cpp",
+        "src/faster_lio/src/laser_mapping.cc",
+        "src/faster_lio/src/options.cc",
+        "src/faster_lio/src/pointcloud_preprocess.cc",
+        "src/faster_lio/src/utils.cc",
+    ],
+    hdrs = glob([
+        "src/faster_lio/include/**/*.h",
+        "src/faster_lio/include/**/*.hpp",
+    ]),
+    includes = [
+        "src/faster_lio/include",
+    ],
+    visibility = ["//visibility:public"],
+    deps = [
+        "//src/faster_lio_interfaces/msg:cpp_faster_lio_interfaces",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_google_glog//:glog",
+        "@com_github_yaml_cpp//:yaml-cpp",
+        "@com_gitlab_eigen//:eigen",
+        "@pcl",
+        "@ros2_common_interfaces//:cpp_geometry_msgs",
+        "@ros2_common_interfaces//:cpp_nav_msgs",
+        "@ros2_common_interfaces//:cpp_sensor_msgs",
+        "@ros2_common_interfaces//:cpp_std_msgs",
+        "@ros2_pcl_conversions//:pcl_conversions",
+        "@ros2_rclcpp//:rclcpp",
+        "@ros2_tf2",
+        "@tbb",  # Add TBB dependency (adjust if your tbb repo name is different)
+    ],
+)
+
+cc_binary(
+    name = "run_mapping_online",
+    srcs = ["src/faster_lio/app/run_mapping_online.cc"],
+    deps = [
+        ":faster_lio",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_google_glog//:glog",
+        "@com_github_yaml_cpp//:yaml-cpp",
+        "@com_gitlab_eigen//:eigen",
+        "@tbb",
+    ],
+)
+
+cc_binary(
+    name = "run_mapping_offline",
+    srcs = ["src/faster_lio/app/run_mapping_offline.cc"],
+    deps = [
+        ":faster_lio",
+        "@com_github_gflags_gflags//:gflags",
+        "@com_github_google_glog//:glog",
+        "@com_gitlab_eigen//:eigen",
+        "@ros2_rosbag2//:rosbag2_cpp",
+        "@ros2_rosbag2//:rosbag2_storage",
+        "@tbb",
+    ],
+)

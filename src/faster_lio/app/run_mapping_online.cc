@@ -18,7 +18,12 @@ void SigHandle(int sig) {
 }
 
 int main(int argc, char **argv) {
-    rclcpp::init(argc, argv);
+    try {
+        rclcpp::init(argc, argv);
+    } catch (const std::exception &exception) {
+        RCLCPP_ERROR(rclcpp::get_logger("rclcpp"), exception.what());
+        return EXIT_FAILURE;
+    }
 
     // FLAGS_stderrthreshold = google::INFO;
     // FLAGS_colorlogtostderr = true;

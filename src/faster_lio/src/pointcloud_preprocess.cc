@@ -66,7 +66,11 @@ void PointCloudPreprocess::Process(const sensor_msgs::msg::PointCloud2::ConstSha
 void PointCloudPreprocess::AviaHandler(const faster_lio_interfaces::msg::CustomMsg::ConstSharedPtr &msg) {
     cloud_out_.clear();
     cloud_full_.clear();
-    int plsize = msg->point_num;
+    uint plsize = static_cast<uint>(msg->point_num);
+    if (plsize < 1) {
+        LOG(WARNING) << "Point cloud size is less than 1, skipping processing.";
+        return;
+    }
 
     cloud_out_.reserve(plsize);
     cloud_full_.resize(plsize);
@@ -89,12 +93,12 @@ void PointCloudPreprocess::AviaHandler(const faster_lio_interfaces::msg::CustomM
                     msg->points[i].offset_time /
                     float(1000000);  // use curvature as time of each laser points, curvature unit: ms
 
-                if ((abs(cloud_full_[i].x - cloud_full_[i - 1].x) > 1e-7) ||
-                    (abs(cloud_full_[i].y - cloud_full_[i - 1].y) > 1e-7) ||
-                    (abs(cloud_full_[i].z - cloud_full_[i - 1].z) > 1e-7) &&
-                        (cloud_full_[i].x * cloud_full_[i].x + cloud_full_[i].y * cloud_full_[i].y +
-                             cloud_full_[i].z * cloud_full_[i].z >
-                         (blind_ * blind_))) {
+                if (((abs(cloud_full_[i].x - cloud_full_[i - 1].x) > 1e-7) ||
+                     (abs(cloud_full_[i].y - cloud_full_[i - 1].y) > 1e-7) ||
+                     (abs(cloud_full_[i].z - cloud_full_[i - 1].z) > 1e-7)) &&
+                    (cloud_full_[i].x * cloud_full_[i].x + cloud_full_[i].y * cloud_full_[i].y +
+                         cloud_full_[i].z * cloud_full_[i].z >
+                     (blind_ * blind_))) {
                     is_valid_pt[i] = true;
                 }
             }
@@ -116,7 +120,7 @@ void PointCloudPreprocess::Oust64Handler(const sensor_msgs::msg::PointCloud2::Co
     int plsize = pl_orig.size();
     cloud_out_.reserve(plsize);
 
-    for (int i = 0; i < pl_orig.points.size(); i++) {
+    for (size_t i = 0; i < pl_orig.points.size(); i++) {
         if (i % point_filter_num_ != 0) continue;
 
         double range = pl_orig.points[i].x * pl_orig.points[i].x + pl_orig.points[i].y * pl_orig.points[i].y +
@@ -161,7 +165,14 @@ void PointCloudPreprocess::VelodyneHandler(const sensor_msgs::msg::PointCloud2::
     } else {
         given_offset_time_ = false;
         double yaw_first = atan2(pl_orig.points[0].y, pl_orig.points[0].x) * 57.29578;
+#if defined(__GNUC__)
+#pragma GCC diagnostic push
+#pragma GCC diagnostic ignored "-Wunused-but-set-variable"
+#endif
         double yaw_end = yaw_first;
+#if defined(__GNUC__)
+#pragma GCC diagnostic pop
+#endif
         int layer_first = pl_orig.points[0].ring;
         for (uint i = plsize - 1; i > 0; i--) {
             if (pl_orig.points[i].ring == layer_first) {

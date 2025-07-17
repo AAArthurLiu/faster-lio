@@ -1,0 +1,127 @@
+# +------------------------------------------------------------+
+# | Startup Options                                            |
+# +------------------------------------------------------------+
+startup --batch_cpu_scheduling
+
+startup --host_jvm_args=-XX:-UseParallelGC
+
+# +------------------------------------------------------------+
+# | Test Configurations                                        |
+# +------------------------------------------------------------+
+
+
+# By default prints output only from failed tests.
+test --test_output=errors
+
+test --test_env=ROS_LOG_DIR=/tmp
+
+# Make sure the sandbox can connect to the internet.
+test --spawn_strategy=worker,processwrapper-sandbox
+
+# +------------------------------------------------------------+
+# | Build Configurations                                       |
+# +------------------------------------------------------------+
+# Do not show warnings from external dependencies or third party part.
+build --features=external_include_paths
+build --output_filter='^(?!//third_party).*'
+
+build --show_timestamps
+
+# Make sure the sandbox can connect to the internet.
+build --spawn_strategy=worker,processwrapper-sandbox
+
+# Ignore warnings execpt dir in list.
+build --per_file_copt=+//(third_party)/.*@-Wall,-Wextra,-Werror
+
+# If a command fails, print out the full command line.
+build --verbose_failures
+
+# Compile info color
+build --cxxopt="-fdiagnostics-color"
+
+# Enable C++17
+build --cxxopt="-std=c++17"
+build --copt=-fPIC
+build --copt=-Werror=return-type
+
+# RDK platform shorthand
+build:rdk --platforms=//toolchain/rdk:platform
+
+# Use optimized builds for C++ code.
+build:release -c opt
+build:release --linkopt=-s
+build:release --copt=-O3
+
+# how to make breakpad work
+# 1. bazel build --config=gen_sym your_binary
+# 2. strip your_binary
+build:gen_sym -c dbg
+build:gen_sym --linkopt=-g
+build:gen_sym --copt=-g
+build:gen_sym --copt=-O3
+build:gen_sym --copt=-fdiagnostics-color=always
+
+build:asan --strip=never
+build:asan --copt -fsanitize=address
+build:asan --copt -DADDRESS_SANITIZER
+build:asan --copt -O3
+build:asan --copt -g
+build:asan --copt -fno-omit-frame-pointer
+build:asan --linkopt -fsanitize=address
+
+build:tsan --strip=never
+build:tsan --copt -fsanitize=thread
+build:tsan --copt -DTHREAD_SANITIZER
+build:tsan --copt -O3
+build:tsan --copt -g
+build:tsan --copt -fno-omit-frame-pointer
+build:tsan --linkopt -fsanitize=thread
+
+test:asan --strip=never
+test:asan --copt -fsanitize=address
+test:asan --copt -DADDRESS_SANITIZER
+test:asan --copt -O3
+test:asan --copt -g
+test:asan --copt -fno-omit-frame-pointer
+test:asan --linkopt -fsanitize=address
+# suppressions only supports absolute paths
+test:asan --action_env=ASAN_OPTIONS=detect_leaks=1:color=always:suppressions=/ignorelist.txt
+
+test:tsan --strip=never
+test:tsan --copt -fsanitize=thread
+test:tsan --copt -DTHREAD_SANITIZER
+test:tsan --copt -O3
+test:tsan --copt -g
+test:tsan --copt -fno-omit-frame-pointer
+test:tsan --linkopt -fsanitize=thread
+test:tsan --action_env=TSAN_OPTIONS=suppressions=/ignorelist-tsan.txt
+
+test:release -c opt
+test:release --linkopt=-s
+test:release --copt=-O3
+
+# Use debug builds for C++ code.
+build:debug   -c dbg
+build:debug   --copt=-g
+test:debug   -c dbg
+test:debug   --copt=-g
+
+build:gprof --copt='-pg'
+build:gprof --cxxopt='-pg'
+build:gprof --linkopt='-pg'
+
+build:perf --copt=-O3
+# Ensures correct stack traces
+build:perf --copt=-fno-omit-frame-pointer
+# Prevents function elimination issues
+build:perf --copt=-fno-optimize-sibling-calls
+build:perf --copt='-g'
+build:perf --cxxopt='-g'
+build:perf --linkopt='-g'
+build:perf --strip=never
+
+test:coverage --features=-gcc_coverage_map_format
+test:coverage --experimental_cc_coverage
+test:coverage --combined_report=lcov
+test:coverage --test_tag_filters=-skip
+test:coverage --coverage_report_generator=@bazel_tools//tools/test/CoverageOutputGenerator/java/com/google/devtools/coverageoutputgenerator:Main
